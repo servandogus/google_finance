@@ -9,9 +9,10 @@ from datetime import datetime, timedelta
 # https://mktstk.com/2014/12/31/how-to-get-free-intraday-stock-data-with-python/
 # http://www.networkerror.org/component/content/article/1-technical-wootness/44-googles-undocumented-finance-api.html
 
-def get_googlefinance_data(symbol, interval=30, days=1, end_time=datetime.timestamp(datetime.now())):
+def get_intraday_data(symbol, interval=60, days=1, end_time=datetime.timestamp(datetime.now())):
     """
     Retrieve intraday stock data from Google Finance.
+   
     Parameters
     ----------
     symbol : str
@@ -23,6 +24,7 @@ def get_googlefinance_data(symbol, interval=30, days=1, end_time=datetime.timest
     end_time : float
         End time to retrieve. In second with UNIX format 
         (nb of seconds from 01/01/1970 UTC).
+    
     Returns
     -------
     df : pandas.DataFrame
@@ -40,7 +42,7 @@ def get_googlefinance_data(symbol, interval=30, days=1, end_time=datetime.timest
     }
     
     # retrieve data from url :
-    r = requests.get(url_web,params=params)
+    r = requests.get(url_web, params = params)
     # split each line :    
     r = r.text.split()
     # remove 7 first line :
@@ -55,7 +57,43 @@ def get_googlefinance_data(symbol, interval=30, days=1, end_time=datetime.timest
     # Which represents the seconds from 1st January 1970 UTC.
     DF["Datetime"][0] = datetime.fromtimestamp(float(DF["Datetime"][0]))
     # convert the next timestamp :
-    #DF["Datetime"][1:] = [DF["Datetime"][0] + int(x) * timedelta(seconds=interval) for x in DF["Datetime"][1:]]
+    DF["Datetime"][1:] = [DF["Datetime"][0] + int(x) * timedelta(seconds=interval) for x in DF["Datetime"][1:]]
     
     # return :
     return DF
+
+from bs4 import BeautifulSoup
+
+def get_last_price(symbol):
+    """
+    Retrieve last price from Google Finance.
+    
+    Parameters
+    ----------
+    symbol : str
+        Stock symbol.
+
+    Returns
+    -------
+        price : float        
+    """
+    
+    url_web = "https://www.google.com/finance?q=" + symbol
+    
+    # retrive data from url :
+    r = requests.get(url_web)
+    # convert the source page to a BeatifulSoup and specify "lxml" parser :
+    BS = BeautifulSoup(r.text, "lxml")
+    # the price is alwas between <span class="pr"><span..> XX </span></span> :
+    price = BS.find("span", class_ = "pr" ).find("span").text
+    # sometime, like for forex symbol (EURUSD), the price is composed by the figure and text.
+    # we keen only the figure.
+    price = price.split()[0]
+    # The commas are used for separating thousans..
+    # Remove the commas ',' 
+    price = price.replace(",", "")
+    #convert to float :
+    price  = float(price)
+    
+    #return :
+    return price
